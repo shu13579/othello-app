@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>オセロゲーム</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>オセロゲーム</h1>
+        <div class="game-info">
+            <div class="current-player">
+                現在のプレイヤー: <span id="current-player">黒</span>
+            </div>
+            <div class="score">
+                <span id="black-score">黒: 2</span> - <span id="white-score">白: 2</span>
+            </div>
+        </div>
+        <div class="board" id="board"></div>
+        <div class="controls">
+            <button onclick="resetGame()">リセット</button>
+        </div>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>

@@ -1,0 +1,132 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    background-color: #2c3e50;
+    color: white;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    padding: 20px;
+}
+
+.container {
+    text-align: center;
+    max-width: 600px;
+    width: 100%;
+}
+
+h1 {
+    margin-bottom: 20px;
+    font-size: 2.5em;
+    color: #ecf0f1;
+}
+
+.game-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding: 0 20px;
+    font-size: 1.2em;
+}
+
+.current-player {
+    font-weight: bold;
+}
+
+.score {
+    display: flex;
+    gap: 20px;
+}
+
+.board {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    grid-template-rows: repeat(8, 1fr);
+    gap: 2px;
+    background-color: #34495e;
+    padding: 10px;
+    border-radius: 10px;
+    margin: 0 auto;
+    max-width: 400px;
+    aspect-ratio: 1;
+}
+
+.cell {
+    background-color: #27ae60;
+    border: 2px solid #2ecc71;
+    border-radius: 5px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.cell:hover {
+    background-color: #2ecc71;
+}
+
+.cell.valid-move {
+    background-color: #f39c12;
+}
+
+.piece {
+    width: 80%;
+    height: 80%;
+    border-radius: 50%;
+    border: 2px solid #34495e;
+    transition: all 0.3s;
+}
+
+.piece.black {
+    background-color: #2c3e50;
+}
+
+.piece.white {
+    background-color: #ecf0f1;
+}
+
+.controls {
+    margin-top: 20px;
+}
+
+button {
+    background-color: #e74c3c;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    font-size: 1em;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+button:hover {
+    background-color: #c0392b;
+}
+
+@media (max-width: 600px) {
+    .container {
+        padding: 10px;
+    }
+    
+    h1 {
+        font-size: 2em;
+    }
+    
+    .game-info {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .score {
+        justify-content: center;
+    }
+}
