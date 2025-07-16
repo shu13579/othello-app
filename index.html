@@ -14,6 +14,7 @@
             <div class="mode-buttons">
                 <button id="two-player-btn" class="mode-btn active" onclick="setGameMode('two-player')">2人プレイ</button>
                 <button id="ai-btn" class="mode-btn" onclick="setGameMode('ai')">vs AI</button>
+                <button id="online-btn" class="mode-btn" onclick="setGameMode('online')">オンライン対戦</button>
             </div>
             <div class="difficulty-selector" id="difficulty-selector" style="display: none;">
                 <label for="difficulty">難易度:</label>
@@ -22,6 +23,22 @@
                     <option value="medium">普通</option>
                     <option value="hard">難しい</option>
                 </select>
+            </div>
+            <div class="online-setup" id="online-setup" style="display: none;">
+                <div class="player-name-input">
+                    <label for="player-name">プレイヤー名:</label>
+                    <input type="text" id="player-name" placeholder="あなたの名前" maxlength="20">
+                </div>
+                <div class="room-controls">
+                    <button id="create-room-btn" onclick="createRoom()">ルーム作成</button>
+                    <div class="join-room">
+                        <input type="text" id="room-id" placeholder="ルームID">
+                        <button id="join-room-btn" onclick="joinRoom()">参加</button>
+                    </div>
+                </div>
+                <div class="connection-status" id="connection-status">
+                    <span id="status-text">オフライン</span>
+                </div>
             </div>
         </div>
 
@@ -38,6 +55,7 @@
             <button onclick="resetGame()">リセット</button>
         </div>
     </div>
+    <script src="https://unpkg.com/peerjs@1.5.0/dist/peerjs.min.js"></script>
     <script src="script.js"></script>
 </body>
 </html>

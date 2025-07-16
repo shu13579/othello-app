@@ -2,9 +2,12 @@ class OthelloGame {
     constructor() {
         this.board = Array(8).fill(null).map(() => Array(8).fill(0));
         this.currentPlayer = 1; // 1 = 黒, 2 = 白
-        this.gameMode = 'two-player'; // 'two-player' or 'ai'
+        this.gameMode = 'two-player'; // 'two-player', 'ai', or 'online'
         this.difficulty = 'medium'; // 'easy', 'medium', 'hard'
         this.isAITurn = false;
+        this.isOnline = false;
+        this.myPlayerColor = 1; // オンライン対戦時の自分の色
+        this.opponentName = '';
         this.directions = [
             [-1, -1], [-1, 0], [-1, 1],
             [0, -1],           [0, 1],
@@ -85,11 +88,21 @@ class OthelloGame {
             return false;
         }
 
+        // オンライン対戦の場合、自分のターンかチェック
+        if (this.gameMode === 'online' && this.isOnline && this.currentPlayer !== this.myPlayerColor) {
+            return false;
+        }
+
         this.board[row][col] = this.currentPlayer;
 
         // 駒をひっくり返す
         for (const [dr, dc] of this.directions) {
             this.flipPieces(row, col, dr, dc, this.currentPlayer);
+        }
+
+        // オンライン対戦の場合、相手に手を送信
+        if (this.gameMode === 'online' && this.isOnline) {
+            onlineManager.sendMove(row, col);
         }
 
         this.currentPlayer = this.currentPlayer === 1 ? 2 : 1;
@@ -330,9 +343,201 @@ class OthelloGame {
     setDifficulty(difficulty) {
         this.difficulty = difficulty;
     }
+
+    // オンライン対戦用メソッド
+    receiveMove(row, col) {
+        if (this.gameMode !== 'online' || !this.isOnline) return;
+
+        this.board[row][col] = this.currentPlayer;
+
+        // 駒をひっくり返す
+        for (const [dr, dc] of this.directions) {
+            this.flipPieces(row, col, dr, dc, this.currentPlayer);
+        }
+
+        this.currentPlayer = this.currentPlayer === 1 ? 2 : 1;
+
+        // 次のプレイヤーが打てる手があるかチェック
+        if (!this.hasValidMoves(this.currentPlayer)) {
+            this.currentPlayer = this.currentPlayer === 1 ? 2 : 1;
+            if (!this.hasValidMoves(this.currentPlayer)) {
+                this.endGame();
+                return;
+            }
+        }
+
+        this.renderBoard();
+        this.updateUI();
+    }
+
+    setOnlineMode(isOnline, playerColor = 1, opponentName = '') {
+        this.isOnline = isOnline;
+        this.myPlayerColor = playerColor;
+        this.opponentName = opponentName;
+    }
+}
+
+// オンライン対戦管理クラス
+class OnlineManager {
+    constructor() {
+        this.peer = null;
+        this.connection = null;
+        this.isHost = false;
+        this.playerName = '';
+        this.roomId = '';
+    }
+
+    async initialize(playerName) {
+        this.playerName = playerName;
+        try {
+            this.peer = new Peer({
+                host: 'peerjs-server.herokuapp.com',
+                port: 443,
+                secure: true,
+                config: {
+                    'iceServers': [
+                        { urls: 'stun:stun.l.google.com:19302' }
+                    ]
+                }
+            });
+
+            return new Promise((resolve, reject) => {
+                this.peer.on('open', (id) => {
+                    this.roomId = id;
+                    this.updateStatus('オンライン', 'connected');
+                    resolve(id);
+                });
+
+                this.peer.on('error', (error) => {
+                    this.updateStatus('接続エラー', 'error');
+                    reject(error);
+                });
+            });
+        } catch (error) {
+            this.updateStatus('接続エラー', 'error');
+            throw error;
+        }
+    }
+
+    async createRoom() {
+        if (!this.peer) return;
+
+        this.isHost = true;
+        this.updateStatus('プレイヤー待機中...', 'connecting');
+
+        this.peer.on('connection', (conn) => {
+            this.connection = conn;
+            this.setupConnection();
+            this.updateStatus(`対戦相手: ${conn.metadata?.name || '不明'}`, 'connected');
+            
+            // ホストは黒（先攻）
+            game.setOnlineMode(true, 1, conn.metadata?.name || '相手');
+            game.setGameMode('online');
+            
+            // 相手に開始メッセージを送信
+            this.connection.send({
+                type: 'game_start',
+                hostName: this.playerName,
+                yourColor: 2
+            });
+        });
+
+        return this.roomId;
+    }
+
+    async joinRoom(roomId) {
+        if (!this.peer) return;
+
+        this.isHost = false;
+        this.updateStatus('接続中...', 'connecting');
+
+        try {
+            this.connection = this.peer.connect(roomId, {
+                metadata: { name: this.playerName }
+            });
+
+            this.setupConnection();
+
+            this.connection.on('open', () => {
+                this.updateStatus('接続完了', 'connected');
+            });
+
+        } catch (error) {
+            this.updateStatus('接続失敗', 'error');
+            throw error;
+        }
+    }
+
+    setupConnection() {
+        if (!this.connection) return;
+
+        this.connection.on('data', (data) => {
+            switch (data.type) {
+                case 'move':
+                    game.receiveMove(data.row, data.col);
+                    break;
+                case 'game_start':
+                    game.setOnlineMode(true, data.yourColor, data.hostName);
+                    game.setGameMode('online');
+                    this.updateStatus(`対戦相手: ${data.hostName}`, 'connected');
+                    break;
+                case 'reset':
+                    game.initializeGame();
+                    break;
+            }
+        });
+
+        this.connection.on('close', () => {
+            this.updateStatus('接続切断', 'error');
+            game.setOnlineMode(false);
+        });
+
+        this.connection.on('error', (error) => {
+            this.updateStatus('通信エラー', 'error');
+            console.error('Connection error:', error);
+        });
+    }
+
+    sendMove(row, col) {
+        if (this.connection && this.connection.open) {
+            this.connection.send({
+                type: 'move',
+                row: row,
+                col: col
+            });
+        }
+    }
+
+    sendReset() {
+        if (this.connection && this.connection.open) {
+            this.connection.send({
+                type: 'reset'
+            });
+        }
+    }
+
+    updateStatus(message, status = 'connected') {
+        const statusElement = document.getElementById('status-text');
+        const statusContainer = document.getElementById('connection-status');
+        
+        statusElement.textContent = message;
+        statusContainer.className = `connection-status ${status}`;
+    }
+
+    disconnect() {
+        if (this.connection) {
+            this.connection.close();
+        }
+        if (this.peer) {
+            this.peer.destroy();
+        }
+        this.updateStatus('オフライン', '');
+        game.setOnlineMode(false);
+    }
 }
 
 let game;
+let onlineManager = new OnlineManager();
 
 function resetGame() {
     game = new OthelloGame();
@@ -342,17 +547,32 @@ function resetGame() {
 
 function setGameMode(mode) {
     const difficultySelector = document.getElementById('difficulty-selector');
+    const onlineSetup = document.getElementById('online-setup');
     const twoPlayerBtn = document.getElementById('two-player-btn');
     const aiBtn = document.getElementById('ai-btn');
+    const onlineBtn = document.getElementById('online-btn');
+    
+    // すべてのボタンを非アクティブにする
+    twoPlayerBtn.classList.remove('active');
+    aiBtn.classList.remove('active');
+    onlineBtn.classList.remove('active');
+    
+    // すべてのセレクターを非表示にする
+    difficultySelector.style.display = 'none';
+    onlineSetup.style.display = 'none';
     
     if (mode === 'ai') {
         difficultySelector.style.display = 'flex';
         aiBtn.classList.add('active');
-        twoPlayerBtn.classList.remove('active');
+    } else if (mode === 'online') {
+        onlineSetup.style.display = 'flex';
+        onlineBtn.classList.add('active');
+        // オンライン切断
+        onlineManager.disconnect();
     } else {
-        difficultySelector.style.display = 'none';
         twoPlayerBtn.classList.add('active');
-        aiBtn.classList.remove('active');
+        // オンライン切断
+        onlineManager.disconnect();
     }
     
     if (game) {
@@ -369,12 +589,60 @@ function setDifficulty(difficulty) {
 
 function getCurrentGameMode() {
     const aiBtn = document.getElementById('ai-btn');
-    return aiBtn.classList.contains('active') ? 'ai' : 'two-player';
+    const onlineBtn = document.getElementById('online-btn');
+    
+    if (aiBtn.classList.contains('active')) return 'ai';
+    if (onlineBtn.classList.contains('active')) return 'online';
+    return 'two-player';
 }
 
 function getCurrentDifficulty() {
     const difficultySelect = document.getElementById('difficulty');
     return difficultySelect.value;
+}
+
+// オンライン対戦用の関数
+async function createRoom() {
+    const playerName = document.getElementById('player-name').value.trim();
+    if (!playerName) {
+        alert('プレイヤー名を入力してください');
+        return;
+    }
+
+    try {
+        await onlineManager.initialize(playerName);
+        const roomId = await onlineManager.createRoom();
+        
+        // ルームIDを表示
+        document.getElementById('room-id').value = roomId;
+        alert(`ルーム作成完了！\nルームID: ${roomId}\n相手プレイヤーの参加を待機中...`);
+        
+    } catch (error) {
+        alert('ルーム作成に失敗しました: ' + error.message);
+    }
+}
+
+async function joinRoom() {
+    const playerName = document.getElementById('player-name').value.trim();
+    const roomId = document.getElementById('room-id').value.trim();
+    
+    if (!playerName) {
+        alert('プレイヤー名を入力してください');
+        return;
+    }
+    
+    if (!roomId) {
+        alert('ルームIDを入力してください');
+        return;
+    }
+
+    try {
+        await onlineManager.initialize(playerName);
+        await onlineManager.joinRoom(roomId);
+        
+    } catch (error) {
+        alert('ルーム参加に失敗しました: ' + error.message);
+    }
 }
 
 // ゲーム開始
