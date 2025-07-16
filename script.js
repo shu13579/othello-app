@@ -389,9 +389,21 @@ class OnlineManager {
 
     async initialize(playerName) {
         this.playerName = playerName;
-        try {
-            this.peer = new Peer({
-                host: 'peerjs-server.herokuapp.com',
+        
+        // 複数のサーバーを試すフォールバック機能
+        const serverConfigs = [
+            // PeerJSのデフォルトサーバー（最も信頼性が高い）
+            {
+                config: {
+                    'iceServers': [
+                        { urls: 'stun:stun.l.google.com:19302' },
+                        { urls: 'stun:stun1.l.google.com:19302' }
+                    ]
+                }
+            },
+            // フォールバックサーバー1
+            {
+                host: '0.peerjs.com',
                 port: 443,
                 secure: true,
                 config: {
@@ -399,23 +411,52 @@ class OnlineManager {
                         { urls: 'stun:stun.l.google.com:19302' }
                     ]
                 }
-            });
+            }
+        ];
 
-            return new Promise((resolve, reject) => {
-                this.peer.on('open', (id) => {
-                    this.roomId = id;
-                    this.updateStatus('オンライン', 'connected');
-                    resolve(id);
+        for (let i = 0; i < serverConfigs.length; i++) {
+            try {
+                this.updateStatus(`接続中... (${i + 1}/${serverConfigs.length})`, 'connecting');
+                
+                this.peer = new Peer(serverConfigs[i]);
+
+                const id = await new Promise((resolve, reject) => {
+                    const timeout = setTimeout(() => {
+                        reject(new Error('接続タイムアウト'));
+                    }, 10000); // 10秒タイムアウト
+
+                    this.peer.on('open', (id) => {
+                        clearTimeout(timeout);
+                        this.roomId = id;
+                        this.updateStatus('オンライン', 'connected');
+                        resolve(id);
+                    });
+
+                    this.peer.on('error', (error) => {
+                        clearTimeout(timeout);
+                        reject(error);
+                    });
                 });
 
-                this.peer.on('error', (error) => {
-                    this.updateStatus('接続エラー', 'error');
-                    reject(error);
-                });
-            });
-        } catch (error) {
-            this.updateStatus('接続エラー', 'error');
-            throw error;
+                return id; // 成功した場合はここで返す
+                
+            } catch (error) {
+                console.log(`サーバー ${i + 1} への接続に失敗:`, error);
+                
+                if (this.peer) {
+                    this.peer.destroy();
+                    this.peer = null;
+                }
+                
+                // 最後のサーバーでも失敗した場合
+                if (i === serverConfigs.length - 1) {
+                    this.updateStatus('接続失敗 - すべてのサーバーが利用不可', 'error');
+                    throw new Error('利用可能なPeerJSサーバーがありません。しばらく時間をおいてから再度お試しください。');
+                }
+                
+                // 次のサーバーを試す前に少し待機
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
         }
     }
 
@@ -449,7 +490,7 @@ class OnlineManager {
         if (!this.peer) return;
 
         this.isHost = false;
-        this.updateStatus('接続中...', 'connecting');
+        this.updateStatus('ルームに接続中...', 'connecting');
 
         try {
             this.connection = this.peer.connect(roomId, {
@@ -458,12 +499,26 @@ class OnlineManager {
 
             this.setupConnection();
 
-            this.connection.on('open', () => {
-                this.updateStatus('接続完了', 'connected');
+            return new Promise((resolve, reject) => {
+                const timeout = setTimeout(() => {
+                    reject(new Error('ルーム接続タイムアウト'));
+                }, 15000); // 15秒タイムアウト
+
+                this.connection.on('open', () => {
+                    clearTimeout(timeout);
+                    this.updateStatus('接続完了', 'connected');
+                    resolve();
+                });
+
+                this.connection.on('error', (error) => {
+                    clearTimeout(timeout);
+                    this.updateStatus('ルーム接続失敗', 'error');
+                    reject(error);
+                });
             });
 
         } catch (error) {
-            this.updateStatus('接続失敗', 'error');
+            this.updateStatus('ルーム接続失敗', 'error');
             throw error;
         }
     }
@@ -609,16 +664,29 @@ async function createRoom() {
         return;
     }
 
+    // ボタンを無効化
+    const createBtn = document.getElementById('create-room-btn');
+    const joinBtn = document.getElementById('join-room-btn');
+    createBtn.disabled = true;
+    joinBtn.disabled = true;
+    createBtn.textContent = '作成中...';
+
     try {
         await onlineManager.initialize(playerName);
         const roomId = await onlineManager.createRoom();
         
         // ルームIDを表示
         document.getElementById('room-id').value = roomId;
-        alert(`ルーム作成完了！\nルームID: ${roomId}\n相手プレイヤーの参加を待機中...`);
+        alert(`ルーム作成完了！\nルームID: ${roomId}\n\n📋 このIDを相手に共有してください。\n相手プレイヤーの参加を待機中...`);
         
     } catch (error) {
-        alert('ルーム作成に失敗しました: ' + error.message);
+        console.error('ルーム作成エラー:', error);
+        alert('ルーム作成に失敗しました。\n\n' + error.message + '\n\n💡 インターネット接続を確認して、しばらく時間をおいてから再度お試しください。');
+    } finally {
+        // ボタンを有効化
+        createBtn.disabled = false;
+        joinBtn.disabled = false;
+        createBtn.textContent = 'ルーム作成';
     }
 }
 
@@ -636,12 +704,37 @@ async function joinRoom() {
         return;
     }
 
+    // ボタンを無効化
+    const createBtn = document.getElementById('create-room-btn');
+    const joinBtn = document.getElementById('join-room-btn');
+    createBtn.disabled = true;
+    joinBtn.disabled = true;
+    joinBtn.textContent = '参加中...';
+
     try {
         await onlineManager.initialize(playerName);
         await onlineManager.joinRoom(roomId);
         
+        alert('ルーム参加完了！\nゲームを開始します。');
+        
     } catch (error) {
-        alert('ルーム参加に失敗しました: ' + error.message);
+        console.error('ルーム参加エラー:', error);
+        
+        let errorMessage = 'ルーム参加に失敗しました。\n\n';
+        if (error.message.includes('タイムアウト')) {
+            errorMessage += '🕒 接続がタイムアウトしました。\n\n💡 ルームIDが正しいか確認してください。\n💡 ルーム作成者が接続しているか確認してください。';
+        } else if (error.message.includes('サーバー')) {
+            errorMessage += '🌐 サーバーへの接続に失敗しました。\n\n💡 インターネット接続を確認してください。\n💡 しばらく時間をおいてから再度お試しください。';
+        } else {
+            errorMessage += error.message + '\n\n💡 ルームIDが正しいか確認してください。';
+        }
+        
+        alert(errorMessage);
+    } finally {
+        // ボタンを有効化
+        createBtn.disabled = false;
+        joinBtn.disabled = false;
+        joinBtn.textContent = '参加';
     }
 }
 
