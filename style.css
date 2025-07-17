@@ -183,7 +183,7 @@ h1 {
     gap: 20px;
 }
 
-.board {
+.game-board {
     display: grid;
     grid-template-columns: repeat(8, 1fr);
     grid-template-rows: repeat(8, 1fr);
@@ -267,4 +267,63 @@ button:hover {
     .score {
         justify-content: center;
     }
+}
+
+/* Additional styles for new architecture */
+.cell.valid-move {
+    background-color: #3498db !important;
+    opacity: 0.6;
+}
+
+.cell.valid-move:hover {
+    background-color: #2980b9 !important;
+    opacity: 0.8;
+}
+
+.cell.last-move {
+    box-shadow: 0 0 10px #f39c12;
+}
+
+.status {
+    margin-top: 10px;
+    padding: 8px;
+    border-radius: 5px;
+    font-weight: bold;
+}
+
+.status.ready {
+    background-color: #27ae60;
+}
+
+.status.connecting {
+    background-color: #f39c12;
+}
+
+.status.connected {
+    background-color: #27ae60;
+}
+
+.status.error {
+    background-color: #e74c3c;
+}
+
+.status.disconnected {
+    background-color: #95a5a6;
+}
+
+.online-controls {
+    margin-top: 15px;
+}
+
+.room-controls {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin-bottom: 10px;
+}
+
+.room-display {
+    font-size: 1.1em;
+    font-weight: bold;
+    color: #f39c12;
 }
