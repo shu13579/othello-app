@@ -102,7 +102,9 @@ class OthelloGame {
 
         // オンライン対戦の場合、相手に手を送信
         if (this.gameMode === 'online' && this.isOnline) {
-            onlineManager.sendMove(row, col);
+            onlineManager.sendMove(row, col).catch(error => {
+                console.error('手の送信に失敗しました:', error);
+            });
         }
 
         this.currentPlayer = this.currentPlayer === 1 ? 2 : 1;
@@ -385,6 +387,20 @@ class OnlineManager {
         this.isHost = false;
         this.playerName = '';
         this.roomId = '';
+        this.peerId = '';
+        this.roomMappings = new Map(); // 5桁ID -> PeerJS ID のマッピング
+    }
+
+    generateRoomId() {
+        // 5桁のランダムな数字を生成
+        return Math.floor(10000 + Math.random() * 90000).toString();
+    }
+
+    generateCustomPeerId() {
+        // タイムスタンプとランダム数字を組み合わせて一意のIDを生成
+        const timestamp = Date.now().toString(36);
+        const random = Math.random().toString(36).substr(2, 5);
+        return `othello-${timestamp}-${random}`;
     }
 
     async initialize(playerName) {
@@ -418,7 +434,9 @@ class OnlineManager {
             try {
                 this.updateStatus(`接続中... (${i + 1}/${serverConfigs.length})`, 'connecting');
                 
-                this.peer = new Peer(serverConfigs[i]);
+                // カスタムIDを使用してPeerを作成
+                const customId = this.generateCustomPeerId();
+                this.peer = new Peer(customId, serverConfigs[i]);
 
                 const id = await new Promise((resolve, reject) => {
                     const timeout = setTimeout(() => {
@@ -427,7 +445,7 @@ class OnlineManager {
 
                     this.peer.on('open', (id) => {
                         clearTimeout(timeout);
-                        this.roomId = id;
+                        this.peerId = id;
                         this.updateStatus('オンライン', 'connected');
                         resolve(id);
                     });
@@ -464,6 +482,12 @@ class OnlineManager {
         if (!this.peer) return;
 
         this.isHost = true;
+        this.roomId = this.generateRoomId();
+        
+        // localStorageにルームIDとPeerIDのマッピングを保存
+        localStorage.setItem(`room_${this.roomId}`, this.peerId);
+        localStorage.setItem(`room_${this.roomId}_host`, this.playerName);
+        
         this.updateStatus('プレイヤー待機中...', 'connecting');
 
         this.peer.on('connection', (conn) => {
@@ -475,26 +499,71 @@ class OnlineManager {
             game.setOnlineMode(true, 1, conn.metadata?.name || '相手');
             game.setGameMode('online');
             
-            // 相手に開始メッセージを送信
+            // 接続が完全に開くまで待機してからメッセージを送信
+            if (this.connection.open) {
+                this.sendGameStartMessage().catch(error => {
+                    console.error('ゲーム開始メッセージ送信に失敗しました:', error);
+                });
+            } else {
+                this.connection.on('open', () => {
+                    this.sendGameStartMessage().catch(error => {
+                        console.error('ゲーム開始メッセージ送信に失敗しました:', error);
+                    });
+                });
+            }
+        });
+
+        return this.roomId;
+    }
+
+    async sendGameStartMessage() {
+        if (!this.connection) {
+            console.warn('接続が存在しません。ゲーム開始メッセージを送信できません。');
+            return false;
+        }
+
+        if (!this.connection.open) {
+            console.warn('接続が開いていません。接続が開くまで待機します...');
+            this.updateStatus('接続待機中...', 'connecting');
+            
+            try {
+                await this.waitForConnectionOpen();
+            } catch (error) {
+                console.error('接続待機タイムアウト:', error);
+                this.updateStatus('接続タイムアウト', 'error');
+                return false;
+            }
+        }
+
+        try {
             this.connection.send({
                 type: 'game_start',
                 hostName: this.playerName,
                 yourColor: 2
             });
-        });
-
-        return this.roomId;
+            return true;
+        } catch (error) {
+            console.error('ゲーム開始メッセージ送信エラー:', error);
+            this.updateStatus('送信エラー', 'error');
+            return false;
+        }
     }
 
     async joinRoom(roomId) {
         if (!this.peer) return;
 
         this.isHost = false;
+        this.roomId = roomId;
         this.updateStatus('ルームに接続中...', 'connecting');
 
         try {
-            this.connection = this.peer.connect(roomId, {
-                metadata: { name: this.playerName }
+            // 5桁のルームIDからPeerIDを取得するために、まずホストに接続を試みる
+            // 実際の環境では、ルームID -> PeerIDのマッピングサーバーが必要
+            // 今回は簡単な実装として、ルームIDをそのままPeerIDとして使用
+            const targetPeerId = await this.resolvePeerIdFromRoomId(roomId);
+            
+            this.connection = this.peer.connect(targetPeerId, {
+                metadata: { name: this.playerName, roomId: roomId }
             });
 
             this.setupConnection();
@@ -521,6 +590,15 @@ class OnlineManager {
             this.updateStatus('ルーム接続失敗', 'error');
             throw error;
         }
+    }
+
+    async resolvePeerIdFromRoomId(roomId) {
+        // localStorageからルームIDに対応するPeerIDを取得
+        const peerId = localStorage.getItem(`room_${roomId}`);
+        if (!peerId) {
+            throw new Error(`ルームID ${roomId} が見つかりません。ルームIDが正しいか確認してください。`);
+        }
+        return peerId;
     }
 
     setupConnection() {
@@ -553,21 +631,90 @@ class OnlineManager {
         });
     }
 
-    sendMove(row, col) {
-        if (this.connection && this.connection.open) {
+    async sendMove(row, col) {
+        if (!this.connection) {
+            console.warn('接続が存在しません。メッセージを送信できません。');
+            this.updateStatus('接続が存在しません', 'error');
+            return false;
+        }
+
+        if (!this.connection.open) {
+            console.warn('接続が開いていません。接続が開くまで待機します...');
+            this.updateStatus('接続待機中...', 'connecting');
+            
+            try {
+                await this.waitForConnectionOpen();
+            } catch (error) {
+                console.error('接続待機タイムアウト:', error);
+                this.updateStatus('接続タイムアウト', 'error');
+                return false;
+            }
+        }
+
+        try {
             this.connection.send({
                 type: 'move',
                 row: row,
                 col: col
             });
+            return true;
+        } catch (error) {
+            console.error('メッセージ送信エラー:', error);
+            this.updateStatus('送信エラー', 'error');
+            return false;
         }
     }
 
-    sendReset() {
-        if (this.connection && this.connection.open) {
+    waitForConnectionOpen(timeout = 5000) {
+        return new Promise((resolve, reject) => {
+            if (this.connection.open) {
+                resolve();
+                return;
+            }
+
+            const timeoutId = setTimeout(() => {
+                reject(new Error('接続待機タイムアウト'));
+            }, timeout);
+
+            const onOpen = () => {
+                clearTimeout(timeoutId);
+                this.connection.off('open', onOpen);
+                resolve();
+            };
+
+            this.connection.on('open', onOpen);
+        });
+    }
+
+    async sendReset() {
+        if (!this.connection) {
+            console.warn('接続が存在しません。リセットを送信できません。');
+            this.updateStatus('接続が存在しません', 'error');
+            return false;
+        }
+
+        if (!this.connection.open) {
+            console.warn('接続が開いていません。接続が開くまで待機します...');
+            this.updateStatus('接続待機中...', 'connecting');
+            
+            try {
+                await this.waitForConnectionOpen();
+            } catch (error) {
+                console.error('接続待機タイムアウト:', error);
+                this.updateStatus('接続タイムアウト', 'error');
+                return false;
+            }
+        }
+
+        try {
             this.connection.send({
                 type: 'reset'
             });
+            return true;
+        } catch (error) {
+            console.error('リセット送信エラー:', error);
+            this.updateStatus('送信エラー', 'error');
+            return false;
         }
     }
 
