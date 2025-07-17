@@ -68,6 +68,7 @@ export class GameController {
 
         // オンラインモードで自分のターンでない場合は何もしない
         if (gameState.isOnline && gameState.currentPlayer !== gameState.onlinePlayerColor) {
+            console.log('自分のターンではありません。現在のプレイヤー:', gameState.currentPlayer, '自分の色:', gameState.onlinePlayerColor);
             return;
         }
 
@@ -78,11 +79,12 @@ export class GameController {
         // UIを更新
         this.uiManager.updateBoard();
         this.uiManager.highlightLastMove(row, col);
+        this.uiManager.updateCurrentPlayer();
 
         // オンラインモードの場合、相手に手を送信
         if (gameState.isOnline && this.networkManager) {
             try {
-                console.log('相手に手を送信:', row, col);
+                console.log('相手に手を送信:', row, col, 'currentPlayer:', this.gameEngine.currentPlayer);
                 const sendResult = await this.networkManager.sendMove(row, col);
                 console.log('送信結果:', sendResult);
             } catch (error) {
@@ -95,6 +97,22 @@ export class GameController {
         if (result.gameOver) {
             this.handleGameOver(result.winner);
             return;
+        }
+
+        // 次の手があるかチェック（パス処理）
+        const currentGameState = this.gameEngine.getGameState();
+        if (!this.gameEngine.hasValidMoves(currentGameState.currentPlayer)) {
+            console.log('現在のプレイヤーに有効な手がありません、パス');
+            // パスの場合、再度ターンを切り替え
+            this.gameEngine.currentPlayer = this.gameEngine.currentPlayer === 1 ? 2 : 1;
+            this.uiManager.updateCurrentPlayer();
+            
+            // 次のプレイヤーにも有効な手がない場合、ゲーム終了
+            if (!this.gameEngine.hasValidMoves(this.gameEngine.currentPlayer)) {
+                this.gameEngine.gameOver = true;
+                this.handleGameOver(this.gameEngine.getWinner());
+                return;
+            }
         }
 
         // AIモードでAIのターン
@@ -139,7 +157,11 @@ export class GameController {
     handleOpponentMove(row, col) {
         console.log('相手の手を受信:', row, col);
         const gameState = this.gameEngine.getGameState();
-        console.log('現在のゲーム状態:', gameState);
+        console.log('受信前のゲーム状態:', {
+            currentPlayer: gameState.currentPlayer,
+            onlinePlayerColor: gameState.onlinePlayerColor,
+            isOnline: gameState.isOnline
+        });
         
         const result = this.gameEngine.makeMove(row, col, true); // バリデーションをスキップ
         console.log('手の実行結果:', result);
@@ -147,6 +169,31 @@ export class GameController {
         if (result && result.success) {
             this.uiManager.updateBoard();
             this.uiManager.highlightLastMove(row, col);
+
+            const newGameState = this.gameEngine.getGameState();
+            console.log('受信後のゲーム状態:', {
+                currentPlayer: newGameState.currentPlayer,
+                onlinePlayerColor: newGameState.onlinePlayerColor,
+                isOnline: newGameState.isOnline
+            });
+
+            // ターン表示を強制更新
+            this.uiManager.updateCurrentPlayer();
+
+            // 次の手があるかチェック
+            if (!this.gameEngine.hasValidMoves(newGameState.currentPlayer)) {
+                console.log('現在のプレイヤーに有効な手がありません、パス');
+                // パスの場合、再度ターンを切り替え
+                this.gameEngine.currentPlayer = this.gameEngine.currentPlayer === 1 ? 2 : 1;
+                this.uiManager.updateCurrentPlayer();
+                
+                // 次のプレイヤーにも有効な手がない場合、ゲーム終了
+                if (!this.gameEngine.hasValidMoves(this.gameEngine.currentPlayer)) {
+                    this.gameEngine.gameOver = true;
+                    this.handleGameOver(this.gameEngine.getWinner());
+                    return;
+                }
+            }
 
             if (result.gameOver) {
                 this.handleGameOver(result.winner);
