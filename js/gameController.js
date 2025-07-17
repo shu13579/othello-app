@@ -13,6 +13,11 @@ export class GameController {
         this.uiManager = new UIManager();
         this.aiDifficulty = 'normal';
         
+        // タイマー関連
+        this.turnTimer = null;
+        this.turnTimeLimit = 30; // 30秒
+        this.currentTimeLeft = this.turnTimeLimit;
+        
         this.initializeComponents();
         this.startNewGame();
     }
@@ -53,6 +58,7 @@ export class GameController {
         this.gameEngine.initializeBoard();
         this.uiManager.updateBoard();
         this.uiManager.updateStatus('ゲーム開始', 'ready');
+        this.stopTimer();
     }
 
     async handlePlayerMove(row, col) {
@@ -80,6 +86,9 @@ export class GameController {
         this.uiManager.updateBoard();
         this.uiManager.highlightLastMove(row, col);
         this.uiManager.updateCurrentPlayer();
+        
+        // タイマーを停止
+        this.stopTimer();
 
         // オンラインモードの場合、相手に手を送信
         if (gameState.isOnline && this.networkManager) {
@@ -180,6 +189,11 @@ export class GameController {
             // ターン表示を強制更新
             this.uiManager.updateCurrentPlayer();
 
+            // オンラインモードで自分のターンの場合、タイマーを開始
+            if (newGameState.isOnline && newGameState.currentPlayer === newGameState.onlinePlayerColor) {
+                this.startTimer();
+            }
+
             // 次の手があるかチェック
             if (!this.gameEngine.hasValidMoves(newGameState.currentPlayer)) {
                 console.log('現在のプレイヤーに有効な手がありません、パス');
@@ -217,6 +231,9 @@ export class GameController {
             this.gameEngine.setGameMode('online');
             this.startNewGame();
             this.uiManager.updateStatus('対戦相手が接続しました', 'connected');
+            
+            // ホストが先手なのでタイマーを開始
+            this.startTimer();
         }
     }
 
@@ -225,6 +242,9 @@ export class GameController {
         if (this.networkManager) {
             this.networkManager.disconnect();
         }
+
+        // タイマーを停止
+        this.stopTimer();
 
         // ゲームモード設定
         this.gameEngine.setGameMode(mode);
@@ -275,6 +295,67 @@ export class GameController {
             game: this.gameEngine.getGameState(),
             network: this.networkManager.getConnectionInfo()
         };
+    }
+
+    // タイマー制御メソッド
+    startTimer() {
+        const gameState = this.gameEngine.getGameState();
+        
+        // オンラインモードでない場合は何もしない
+        if (!gameState.isOnline) return;
+        
+        // 既存のタイマーを停止
+        this.stopTimer();
+        
+        // タイマーを表示
+        this.uiManager.showTimer();
+        
+        // 時間をリセット
+        this.currentTimeLeft = this.turnTimeLimit;
+        this.uiManager.updateTimer(this.currentTimeLeft);
+        
+        // 1秒ごとにカウントダウン
+        this.turnTimer = setInterval(() => {
+            this.currentTimeLeft--;
+            this.uiManager.updateTimer(this.currentTimeLeft);
+            
+            if (this.currentTimeLeft <= 0) {
+                this.handleTimeOut();
+            }
+        }, 1000);
+    }
+    
+    stopTimer() {
+        if (this.turnTimer) {
+            clearInterval(this.turnTimer);
+            this.turnTimer = null;
+        }
+        this.uiManager.hideTimer();
+    }
+    
+    async handleTimeOut() {
+        console.log('タイムアウト発生');
+        this.stopTimer();
+        
+        const gameState = this.gameEngine.getGameState();
+        
+        // 自分のターンの場合のみタイムアウト処理
+        if (gameState.isOnline && gameState.currentPlayer === gameState.onlinePlayerColor) {
+            const validMoves = this.gameEngine.getValidMoves(gameState.currentPlayer);
+            
+            if (validMoves.length > 0) {
+                // ランダムな有効手を選択
+                const randomMove = validMoves[Math.floor(Math.random() * validMoves.length)];
+                console.log('タイムアウトによる自動手:', randomMove);
+                
+                this.uiManager.updateStatus('時間切れ - 自動で手を選択しました', 'warning');
+                
+                // 少し遅延を入れてから手を実行
+                setTimeout(() => {
+                    this.handlePlayerMove(randomMove.row, randomMove.col);
+                }, 500);
+            }
+        }
     }
 
     // デバッグ用メソッド
