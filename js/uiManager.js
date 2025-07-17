@@ -206,7 +206,7 @@ export class UIManager {
                     currentPlayerElement.textContent = `あなたのターン (${playerText})`;
                 } else {
                     const opponentName = gameState.opponentName || '相手';
-                    currentPlayerElement.textContent = `${opponentName}のターン (${playerText})`;
+                    currentPlayerElement.textContent = `${opponentName}のターンです (${playerText})`;
                 }
             } else {
                 currentPlayerElement.textContent = `${playerText}のターン`;
@@ -301,6 +301,31 @@ export class UIManager {
         const cell = document.querySelector(`[data-row="${row}"][data-col="${col}"]`);
         if (cell) {
             cell.classList.add('last-move');
+        }
+    }
+
+    // タイマー関連メソッド
+    showTimer() {
+        const timerDisplay = document.getElementById('timerDisplay');
+        timerDisplay.style.display = 'block';
+    }
+
+    hideTimer() {
+        const timerDisplay = document.getElementById('timerDisplay');
+        timerDisplay.style.display = 'none';
+    }
+
+    updateTimer(timeLeft) {
+        const timeLeftElement = document.getElementById('timeLeft');
+        const timerDisplay = document.getElementById('timerDisplay');
+        
+        timeLeftElement.textContent = timeLeft;
+        
+        // 時間が少なくなったら警告表示
+        if (timeLeft <= 10) {
+            timerDisplay.classList.add('warning');
+        } else {
+            timerDisplay.classList.remove('warning');
         }
     }
 }
