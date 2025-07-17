@@ -34,7 +34,7 @@ export class OthelloGameEngine {
             return false;
         }
 
-        if (this.isOnline && this.currentPlayer !== this.onlinePlayerColor) {
+        if (!skipValidation && this.isOnline && this.currentPlayer !== this.onlinePlayerColor) {
             return false;
         }
 
