@@ -7,43 +7,79 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="container">
-        <h1>オセロゲーム</h1>
-        
-        <div class="game-mode-selector">
-            <div class="mode-buttons">
-                <button id="localBtn" class="mode-btn active">ローカル対戦</button>
-                <button id="aiBtn" class="mode-btn">vs AI</button>
-                <button id="onlineBtn" class="mode-btn">オンライン対戦</button>
+    <!-- モード選択画面 -->
+    <div class="mode-selection-screen" id="modeSelectionScreen">
+        <div class="container">
+            <h1>オセロゲーム</h1>
+            <div class="mode-selection-content">
+                <h2>ゲームモードを選択してください</h2>
+                <div class="mode-cards">
+                    <div class="mode-card" id="localModeCard">
+                        <div class="mode-icon">👥</div>
+                        <h3>ローカル対戦</h3>
+                        <p>同じ画面で友達と対戦</p>
+                        <button class="mode-select-btn" data-mode="local">ローカル対戦を開始</button>
+                    </div>
+                    <div class="mode-card" id="aiModeCard">
+                        <div class="mode-icon">🤖</div>
+                        <h3>vs AI</h3>
+                        <p>コンピューターと対戦</p>
+                        <button class="mode-select-btn" data-mode="ai">AI対戦を開始</button>
+                    </div>
+                    <div class="mode-card" id="onlineModeCard">
+                        <div class="mode-icon">🌐</div>
+                        <h3>オンライン対戦</h3>
+                        <p>インターネット経由で対戦</p>
+                        <button class="mode-select-btn" data-mode="online">オンライン対戦を開始</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ゲーム画面 -->
+    <div class="game-screen" id="gameScreen" style="display: none;">
+        <div class="container">
+            <div class="game-header">
+                <h1>オセロゲーム</h1>
+                <button id="backToModeBtn" class="back-btn">モード選択に戻る</button>
             </div>
             
-            <div class="online-controls" id="onlineControls" style="display: none;">
-                <div class="room-controls">
-                    <button id="createRoomBtn">ルーム作成</button>
-                    <button id="joinRoomBtn">ルーム参加</button>
+            <div class="game-mode-selector">
+                <div class="mode-buttons">
+                    <button id="localBtn" class="mode-btn active">ローカル対戦</button>
+                    <button id="aiBtn" class="mode-btn">vs AI</button>
+                    <button id="onlineBtn" class="mode-btn">オンライン対戦</button>
                 </div>
-                <div class="room-display" id="roomDisplay"></div>
+                
+                <div class="online-controls" id="onlineControls" style="display: none;">
+                    <div class="room-controls">
+                        <button id="createRoomBtn">ルーム作成</button>
+                        <button id="joinRoomBtn">ルーム参加</button>
+                    </div>
+                    <div class="room-display" id="roomDisplay"></div>
+                </div>
             </div>
-        </div>
 
-        <div class="game-info">
-            <div class="current-player">
-                <span id="currentPlayer">黒のターン</span>
+            <div class="game-info">
+                <div class="current-player">
+                    <span id="currentPlayer">黒のターン</span>
+                </div>
+                <div class="timer-display" id="timerDisplay" style="display: none;">
+                    <span id="timerText">残り時間: <span id="timeLeft">30</span>秒</span>
+                </div>
+                <div class="score">
+                    <span>黒: <span id="blackScore">2</span></span> - 
+                    <span>白: <span id="whiteScore">2</span></span>
+                </div>
+                <div class="status" id="status">ゲーム開始</div>
             </div>
-            <div class="timer-display" id="timerDisplay" style="display: none;">
-                <span id="timerText">残り時間: <span id="timeLeft">30</span>秒</span>
+            
+            <div class="game-board" id="gameBoard"></div>
+            
+            <div class="controls">
+                <button id="resetBtn">リセット</button>
             </div>
-            <div class="score">
-                <span>黒: <span id="blackScore">2</span></span> - 
-                <span>白: <span id="whiteScore">2</span></span>
-            </div>
-            <div class="status" id="status">ゲーム開始</div>
-        </div>
-        
-        <div class="game-board" id="gameBoard"></div>
-        
-        <div class="controls">
-            <button id="resetBtn">リセット</button>
         </div>
     </div>
     <script src="https://unpkg.com/peerjs@1.5.0/dist/peerjs.min.js"></script>

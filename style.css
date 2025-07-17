@@ -27,6 +27,110 @@ h1 {
     color: #ecf0f1;
 }
 
+/* モード選択画面のスタイル */
+.mode-selection-screen {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.mode-selection-content {
+    text-align: center;
+    max-width: 800px;
+    width: 100%;
+}
+
+.mode-selection-content h2 {
+    margin-bottom: 40px;
+    font-size: 1.8em;
+    color: #bdc3c7;
+}
+
+.mode-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 30px;
+    margin-bottom: 40px;
+}
+
+.mode-card {
+    background-color: #34495e;
+    padding: 30px;
+    border-radius: 15px;
+    text-align: center;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    cursor: pointer;
+}
+
+.mode-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+}
+
+.mode-icon {
+    font-size: 3em;
+    margin-bottom: 20px;
+}
+
+.mode-card h3 {
+    margin-bottom: 15px;
+    font-size: 1.5em;
+    color: #ecf0f1;
+}
+
+.mode-card p {
+    margin-bottom: 25px;
+    color: #bdc3c7;
+    font-size: 1.1em;
+}
+
+.mode-select-btn {
+    background-color: #3498db;
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    font-size: 1.1em;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+    width: 100%;
+}
+
+.mode-select-btn:hover {
+    background-color: #2980b9;
+}
+
+/* ゲーム画面のスタイル */
+.game-screen {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.game-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.back-btn {
+    background-color: #95a5a6;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    font-size: 1em;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.back-btn:hover {
+    background-color: #7f8c8d;
+}
+
 .game-mode-selector {
     margin-bottom: 20px;
     padding: 15px;

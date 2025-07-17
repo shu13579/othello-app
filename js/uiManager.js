@@ -72,6 +72,19 @@ export class UIManager {
         document.getElementById('joinRoomBtn').addEventListener('click', () => {
             this.handleJoinRoom();
         });
+
+        // モード選択画面のイベントリスナー
+        document.querySelectorAll('.mode-select-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const mode = e.target.dataset.mode;
+                this.showGameScreen(mode);
+            });
+        });
+
+        // 戻るボタン
+        document.getElementById('backToModeBtn').addEventListener('click', () => {
+            this.showModeSelection();
+        });
     }
 
     handleCellClick(row, col) {
@@ -327,5 +340,31 @@ export class UIManager {
         } else {
             timerDisplay.classList.remove('warning');
         }
+    }
+
+    // 画面遷移メソッド
+    showModeSelection() {
+        document.getElementById('modeSelectionScreen').style.display = 'block';
+        document.getElementById('gameScreen').style.display = 'none';
+        this.hideTimer();
+    }
+
+    showGameScreen(mode) {
+        document.getElementById('modeSelectionScreen').style.display = 'none';
+        document.getElementById('gameScreen').style.display = 'block';
+        
+        // 選択されたモードに応じてゲームを開始
+        if (this.onGameModeChangeCallback) {
+            this.onGameModeChangeCallback(mode);
+        }
+        this.updateGameModeUI(mode);
+    }
+
+    // 接続エラー時にモード選択に戻る
+    returnToModeSelection(message) {
+        this.updateStatus(message, 'error');
+        setTimeout(() => {
+            this.showModeSelection();
+        }, 3000);
     }
 }
