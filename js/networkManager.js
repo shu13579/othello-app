@@ -50,9 +50,9 @@ export class NetworkManager {
         this.updateStatus('PeerJSサーバーに接続中...', 'connecting');
 
         const serverConfigs = [
-            { host: 'broker-relay-production.herokuapp.com', port: 443, secure: true },
             { host: '0.peerjs.com', port: 443, secure: true },
-            { host: 'peerjs-server.herokuapp.com', port: 443, secure: true }
+            { key: 'peerjs', host: 'localhost', port: 9000, secure: false },
+            { secure: true }
         ];
 
         for (let i = 0; i < serverConfigs.length; i++) {
@@ -65,7 +65,7 @@ export class NetworkManager {
                 const id = await new Promise((resolve, reject) => {
                     const timeout = setTimeout(() => {
                         reject(new Error('接続タイムアウト'));
-                    }, 10000);
+                    }, 20000);
 
                     this.peer.on('open', (id) => {
                         clearTimeout(timeout);
@@ -109,9 +109,9 @@ export class NetworkManager {
         this.peer.destroy();
         
         const serverConfigs = [
-            { host: 'broker-relay-production.herokuapp.com', port: 443, secure: true },
             { host: '0.peerjs.com', port: 443, secure: true },
-            { host: 'peerjs-server.herokuapp.com', port: 443, secure: true }
+            { key: 'peerjs', host: 'localhost', port: 9000, secure: false },
+            { secure: true }
         ];
 
         for (let i = 0; i < serverConfigs.length; i++) {
@@ -121,7 +121,7 @@ export class NetworkManager {
                 await new Promise((resolve, reject) => {
                     const timeout = setTimeout(() => {
                         reject(new Error('接続タイムアウト'));
-                    }, 10000);
+                    }, 20000);
 
                     this.peer.on('open', (id) => {
                         clearTimeout(timeout);
@@ -226,7 +226,7 @@ export class NetworkManager {
             await new Promise((resolve, reject) => {
                 const timeout = setTimeout(() => {
                     reject(new Error('接続タイムアウト'));
-                }, 15000);
+                }, 30000);
 
                 this.connection.on('open', () => {
                     clearTimeout(timeout);
