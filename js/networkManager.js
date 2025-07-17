@@ -271,6 +271,7 @@ export class NetworkManager {
         if (!this.connection) return;
 
         this.connection.on('data', (data) => {
+            console.log('受信メッセージ:', data);
             if (this.messageCallback) {
                 this.messageCallback(data);
             }
@@ -322,6 +323,7 @@ export class NetworkManager {
         }
 
         try {
+            console.log('送信メッセージ:', message);
             this.connection.send(message);
             return true;
         } catch (error) {

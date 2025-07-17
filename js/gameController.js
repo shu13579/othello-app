@@ -82,7 +82,9 @@ export class GameController {
         // オンラインモードの場合、相手に手を送信
         if (gameState.isOnline && this.networkManager) {
             try {
-                await this.networkManager.sendMove(row, col);
+                console.log('相手に手を送信:', row, col);
+                const sendResult = await this.networkManager.sendMove(row, col);
+                console.log('送信結果:', sendResult);
             } catch (error) {
                 console.error('手の送信に失敗しました:', error);
                 this.uiManager.updateStatus('送信エラー', 'error');
@@ -135,7 +137,13 @@ export class GameController {
     }
 
     handleOpponentMove(row, col) {
+        console.log('相手の手を受信:', row, col);
+        const gameState = this.gameEngine.getGameState();
+        console.log('現在のゲーム状態:', gameState);
+        
         const result = this.gameEngine.makeMove(row, col, true); // バリデーションをスキップ
+        console.log('手の実行結果:', result);
+        
         if (result && result.success) {
             this.uiManager.updateBoard();
             this.uiManager.highlightLastMove(row, col);
@@ -143,6 +151,9 @@ export class GameController {
             if (result.gameOver) {
                 this.handleGameOver(result.winner);
             }
+        } else {
+            console.error('相手の手の実行に失敗しました:', { row, col, result });
+            this.uiManager.updateStatus('ゲーム同期エラー', 'error');
         }
     }
 
