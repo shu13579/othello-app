@@ -19,7 +19,7 @@ export class GameController {
         this.currentTimeLeft = this.turnTimeLimit;
         
         this.initializeComponents();
-        this.startNewGame();
+        this.uiManager.showModeSelection();
     }
 
     initializeComponents() {
@@ -51,6 +51,10 @@ export class GameController {
 
         this.networkManager.setConnectionCallback((isHost, opponentName) => {
             this.handlePlayerConnection(isHost, opponentName);
+        });
+
+        this.networkManager.setDisconnectionCallback(() => {
+            this.handlePlayerDisconnection();
         });
     }
 
@@ -235,6 +239,13 @@ export class GameController {
             // ホストが先手なのでタイマーを開始
             this.startTimer();
         }
+    }
+
+    handlePlayerDisconnection() {
+        console.log('プレイヤーが切断されました');
+        this.stopTimer();
+        this.gameEngine.gameOver = true;
+        this.uiManager.returnToModeSelection('接続が切断されました。3秒後にモード選択画面に戻ります。');
     }
 
     changeGameMode(mode) {

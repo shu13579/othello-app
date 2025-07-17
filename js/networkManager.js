@@ -14,6 +14,7 @@ export class NetworkManager {
         this.statusCallback = null;
         this.messageCallback = null;
         this.connectionCallback = null;
+        this.disconnectionCallback = null;
     }
 
     setStatusCallback(callback) {
@@ -26,6 +27,10 @@ export class NetworkManager {
 
     setConnectionCallback(callback) {
         this.connectionCallback = callback;
+    }
+
+    setDisconnectionCallback(callback) {
+        this.disconnectionCallback = callback;
     }
 
     updateStatus(message, status) {
@@ -280,11 +285,17 @@ export class NetworkManager {
         this.connection.on('close', () => {
             this.updateStatus('接続が切断されました', 'disconnected');
             this.connection = null;
+            if (this.disconnectionCallback) {
+                this.disconnectionCallback();
+            }
         });
 
         this.connection.on('error', (error) => {
             console.error('接続エラー:', error);
             this.updateStatus('接続エラー', 'error');
+            if (this.disconnectionCallback) {
+                this.disconnectionCallback();
+            }
         });
     }
 
