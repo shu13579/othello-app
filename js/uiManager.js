@@ -132,9 +132,13 @@ export class UIManager {
                 cell.dataset.col = col;
 
                 if (gameState.board[row][col] === 1) {
-                    cell.classList.add('black');
+                    const piece = document.createElement('div');
+                    piece.classList.add('piece', 'black');
+                    cell.appendChild(piece);
                 } else if (gameState.board[row][col] === 2) {
-                    cell.classList.add('white');
+                    const piece = document.createElement('div');
+                    piece.classList.add('piece', 'white');
+                    cell.appendChild(piece);
                 }
 
                 board.appendChild(cell);
